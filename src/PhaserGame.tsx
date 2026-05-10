@@ -75,8 +75,8 @@ class CRTScene extends Phaser.Scene {
     this.libertyLayer = liberty;
     this.layers = [stars, buildings, river];
 
-    const bindLinear = (tex: Phaser.Textures.CanvasTexture) => {
-      tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    const bindNearest = (tex: Phaser.Textures.CanvasTexture) => {
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     };
 
     const starsTex = this.textures.addCanvas(CRT_STARS_KEY, this.crtStars.canvas);
@@ -92,11 +92,11 @@ class CRTScene extends Phaser.Scene {
     this.shootingStarTexture = shootingStarTex;
     this.fgTexture = fgTex;
     this.libertyTexture = libertyTex;
-    bindLinear(this.starsTexture);
-    bindLinear(this.buildingsTexture);
-    bindLinear(this.shootingStarTexture);
-    bindLinear(this.fgTexture);
-    bindLinear(this.libertyTexture);
+    bindNearest(this.starsTexture);
+    bindNearest(this.buildingsTexture);
+    bindNearest(this.shootingStarTexture);
+    bindNearest(this.fgTexture);
+    bindNearest(this.libertyTexture);
 
     this.starsImage = this.add.image(0, 0, CRT_STARS_KEY).setOrigin(0, 0).setDepth(0);
     this.shootingStarImage = this.add.image(0, 0, CRT_SHOOTING_STAR_KEY).setOrigin(0, 0).setDepth(0.5);
@@ -186,6 +186,7 @@ function createGame(parent: HTMLElement): Phaser.Game {
     type: Phaser.AUTO,
     parent,
     backgroundColor: palette.background,
+    pixelArt: true,
     scale: {
       mode: Phaser.Scale.RESIZE,
       width: "100%",
