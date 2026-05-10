@@ -4,13 +4,13 @@ import { BuildingsLayer, LibertyLayer, RiverLayer, ShootingStarLayer, StarryNigh
 import { palette } from "./palette";
 
 /** CRT pixels/sec — river (near plane). */
-const RIVER_SCROLL_SPEED = 16;
+const RIVER_SCROLL_SPEED = 3.2;
 /** Skyline drift: slightly slower than river (parallax from water). */
-const BUILDINGS_SCROLL_SPEED = 13;
+const BUILDINGS_SCROLL_SPEED = 2.6;
 /** Stars are farther away, so they drift slower (parallax). */
-const STAR_SCROLL_SPEED = 6;
+const STAR_SCROLL_SPEED = 1.2;
 /** ±px/sec added to *river* speed when panning; stars/buildings use the same multiplier so parallax holds. */
-const MANUAL_SCROLL_BOOST = 52;
+const MANUAL_SCROLL_BOOST = 10.4;
 
 const CRT_STARS_KEY = "crt-stars";
 const CRT_BUILDINGS_KEY = "crt-buildings";
