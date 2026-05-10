@@ -4,7 +4,6 @@ import { BOULDER_H, BOULDER_W, buildBoulder, buildRock, ROCK_H, ROCK_W } from ".
 
 const RIVER_H = Math.floor(VirtualCRT.HEIGHT / 3);
 const RIVER_TOP_Y = VirtualCRT.HEIGHT - RIVER_H;
-/** Match `LibertyLayer`'s pedestal-bottom row so the rocks sit flush under it. */
 const BASE_BOTTOM_Y = RIVER_TOP_Y + 23;
 
 interface Placement {
@@ -18,7 +17,6 @@ interface Placement {
 const BOULDERS_LEFT_X = 196;
 const ROW_Y = BASE_BOTTOM_Y + 1;
 const ROCK_COUNT = 4;
-/** Seed for the per-rock ±1 px vertical jitter. Frozen so the silhouette is stable. */
 const ROCK_JITTER_SEED = 0xa1c3_b007;
 
 const PLACEMENTS: readonly Placement[] = (() => {
@@ -50,12 +48,6 @@ const PLACEMENTS: readonly Placement[] = (() => {
   return placements;
 })();
 
-/**
- * Foreground rocks clustered around the bottom of the Statue of Liberty's
- * pedestal. Same shape as `LibertyLayer`: fixed position, no scrolling, no
- * tiles, custom `renderTo`. Hosted on its own CRT so it can be composited
- * between the river and the Statue.
- */
 export class LibertyRocksLayer extends Layer {
   readonly region: Region = {
     x: 0,
@@ -65,30 +57,11 @@ export class LibertyRocksLayer extends Layer {
   };
   readonly tiles: readonly Uint8ClampedArray[] = [];
 
-  /** Integer CRT-pixel horizontal shift applied at render time (negative = slide left). */
   offsetX = 0;
 
   override renderTo(crt: VirtualCRT): void {
     for (const p of PLACEMENTS) {
-      blitWithAlpha(crt, p.tex, p.w, p.h, p.x + this.offsetX, p.y);
-    }
-  }
-}
-
-/** Per-pixel blit that skips fully-transparent source cells, so overlapping rocks compose. */
-function blitWithAlpha(
-  crt: VirtualCRT,
-  src: Uint8ClampedArray,
-  srcW: number,
-  srcH: number,
-  dstX: number,
-  dstY: number,
-): void {
-  for (let y = 0; y < srcH; y++) {
-    for (let x = 0; x < srcW; x++) {
-      const i = (y * srcW + x) * 4;
-      if (src[i + 3] === 0) continue;
-      crt.setPixel(dstX + x, dstY + y, src[i], src[i + 1], src[i + 2]);
+      crt.drawAlphaSlice(p.tex, p.w, p.h, 0, 0, p.x + this.offsetX, p.y, p.w, p.h);
     }
   }
 }

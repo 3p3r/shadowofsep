@@ -1,25 +1,77 @@
 /**
- * Virtual CRT renderer.
- *
- * Simulates an old-school NES-era CRT framebuffer at 256x240. Game logic
- * renders into this object pixel-by-pixel; the resulting `canvas` is meant to
- * be sampled and stretched by the host (e.g. a Phaser sprite) to fill the
- * actual viewport. No CRT effects (scanlines, distortion, bloom) are applied
- * here on purpose - this is just a plain framebuffer.
+ * Virtual CRT: 256×240 framebuffer drawn into `canvas`; Phaser samples it with nearest filtering.
  */
+type ClippedBlit = { dx0: number; dy0: number; sx0: number; sy0: number; w: number; h: number };
+
+function clipBlit(
+  fbW: number,
+  fbH: number,
+  srcW: number,
+  srcH: number,
+  srcX: number,
+  srcY: number,
+  dstX: number,
+  dstY: number,
+  width: number,
+  height: number,
+): ClippedBlit | null {
+  let dx0 = dstX;
+  let dy0 = dstY;
+  let w = width;
+  let h = height;
+  let sx0 = srcX;
+  let sy0 = srcY;
+
+  if (dx0 < 0) {
+    sx0 -= dx0;
+    w += dx0;
+    dx0 = 0;
+  }
+  if (dy0 < 0) {
+    sy0 -= dy0;
+    h += dy0;
+    dy0 = 0;
+  }
+  if (dx0 + w > fbW) {
+    w = fbW - dx0;
+  }
+  if (dy0 + h > fbH) {
+    h = fbH - dy0;
+  }
+
+  if (sx0 < 0) {
+    dx0 -= sx0;
+    w += sx0;
+    sx0 = 0;
+  }
+  if (sy0 < 0) {
+    dy0 -= sy0;
+    h += sy0;
+    sy0 = 0;
+  }
+  if (sx0 + w > srcW) {
+    w = srcW - sx0;
+  }
+  if (sy0 + h > srcH) {
+    h = srcH - sy0;
+  }
+
+  if (w <= 0 || h <= 0) {
+    return null;
+  }
+  return { dx0, dy0, sx0, sy0, w, h };
+}
+
 export class VirtualCRT {
-  /** Native horizontal resolution of an NTSC NES frame. */
   static readonly WIDTH = 256;
-  /** Native vertical resolution of an NTSC NES frame. */
   static readonly HEIGHT = 240;
 
-  /** The backing canvas. Hand this to a renderer to display the CRT output. */
   readonly canvas: HTMLCanvasElement;
 
   private readonly ctx: CanvasRenderingContext2D;
   private readonly imageData: ImageData;
-  /** RGBA buffer view (Uint8ClampedArray, length WIDTH*HEIGHT*4). */
   private readonly buffer: Uint8ClampedArray;
+  private readonly buffer32: Uint32Array;
 
   constructor() {
     this.canvas = document.createElement("canvas");
@@ -35,41 +87,18 @@ export class VirtualCRT {
 
     this.imageData = this.ctx.createImageData(VirtualCRT.WIDTH, VirtualCRT.HEIGHT);
     this.buffer = this.imageData.data;
-    // Buffer starts as transparent black (Uint8ClampedArray default), so any
-    // un-drawn pixel reveals whatever the host renders behind the CRT canvas.
+    this.buffer32 = new Uint32Array(this.buffer.buffer, this.buffer.byteOffset, this.buffer.length / 4);
   }
 
-  /** Width of the framebuffer in pixels. */
-  get width(): number {
-    return VirtualCRT.WIDTH;
-  }
-
-  /** Height of the framebuffer in pixels. */
-  get height(): number {
-    return VirtualCRT.HEIGHT;
-  }
-
-  /** Direct access to the RGBA buffer, for callers that want to write a whole frame at once. */
   get pixels(): Uint8ClampedArray {
     return this.buffer;
   }
 
-  /**
-   * Fill the entire framebuffer with a color. Defaults to fully transparent
-   * so the host's background (e.g. Phaser's palette color) shows through.
-   * Pass `a = 255` for an opaque clear.
-   */
   clear(r = 0, g = 0, b = 0, a = 0): void {
-    const buf = this.buffer;
-    for (let i = 0; i < buf.length; i += 4) {
-      buf[i] = r;
-      buf[i + 1] = g;
-      buf[i + 2] = b;
-      buf[i + 3] = a;
-    }
+    const packed = r | (g << 8) | (b << 16) | (a << 24);
+    this.buffer32.fill(packed);
   }
 
-  /** Write a single RGB pixel. Out-of-bounds writes are silently ignored. */
   setPixel(x: number, y: number, r: number, g: number, b: number): void {
     if (x < 0 || x >= VirtualCRT.WIDTH || y < 0 || y >= VirtualCRT.HEIGHT) {
       return;
@@ -81,12 +110,6 @@ export class VirtualCRT {
     this.buffer[i + 3] = 255;
   }
 
-  /**
-   * Blit a rectangular slice of an external RGBA texture into the framebuffer.
-   *
-   * Pixels are copied with no scaling or filtering. The destination is clipped
-   * to the framebuffer bounds; the source is clipped to its own bounds.
-   */
   drawTextureSlice(
     src: Uint8ClampedArray,
     srcWidth: number,
@@ -98,54 +121,11 @@ export class VirtualCRT {
     width: number,
     height: number,
   ): void {
-    // Clip destination against the framebuffer.
-    let dx0 = dstX;
-    let dy0 = dstY;
-    let w = width;
-    let h = height;
-
-    let sx0 = srcX;
-    let sy0 = srcY;
-
-    if (dx0 < 0) {
-      sx0 -= dx0;
-      w += dx0;
-      dx0 = 0;
-    }
-    if (dy0 < 0) {
-      sy0 -= dy0;
-      h += dy0;
-      dy0 = 0;
-    }
-    if (dx0 + w > VirtualCRT.WIDTH) {
-      w = VirtualCRT.WIDTH - dx0;
-    }
-    if (dy0 + h > VirtualCRT.HEIGHT) {
-      h = VirtualCRT.HEIGHT - dy0;
-    }
-
-    // Clip source against its own bounds.
-    if (sx0 < 0) {
-      dx0 -= sx0;
-      w += sx0;
-      sx0 = 0;
-    }
-    if (sy0 < 0) {
-      dy0 -= sy0;
-      h += sy0;
-      sy0 = 0;
-    }
-    if (sx0 + w > srcWidth) {
-      w = srcWidth - sx0;
-    }
-    if (sy0 + h > srcHeight) {
-      h = srcHeight - sy0;
-    }
-
-    if (w <= 0 || h <= 0) {
+    const c = clipBlit(VirtualCRT.WIDTH, VirtualCRT.HEIGHT, srcWidth, srcHeight, srcX, srcY, dstX, dstY, width, height);
+    if (!c) {
       return;
     }
-
+    const { dx0, dy0, sx0, sy0, w, h } = c;
     const dst = this.buffer;
     const dstStride = VirtualCRT.WIDTH * 4;
     const srcStride = srcWidth * 4;
@@ -154,15 +134,47 @@ export class VirtualCRT {
     for (let row = 0; row < h; row++) {
       const sOff = (sy0 + row) * srcStride + sx0 * 4;
       const dOff = (dy0 + row) * dstStride + dx0 * 4;
-      // Copy a contiguous run of RGBA bytes for this row.
       dst.set(src.subarray(sOff, sOff + rowBytes), dOff);
     }
   }
 
-  /**
-   * Commit the in-memory buffer to the backing canvas. Call this once per
-   * frame after you're done drawing, before the host samples `canvas`.
-   */
+  drawAlphaSlice(
+    src: Uint8ClampedArray,
+    srcWidth: number,
+    srcHeight: number,
+    srcX: number,
+    srcY: number,
+    dstX: number,
+    dstY: number,
+    width: number,
+    height: number,
+  ): void {
+    const c = clipBlit(VirtualCRT.WIDTH, VirtualCRT.HEIGHT, srcWidth, srcHeight, srcX, srcY, dstX, dstY, width, height);
+    if (!c) {
+      return;
+    }
+    const { dx0, dy0, sx0, sy0, w, h } = c;
+    const dst = this.buffer;
+    const dstStride = VirtualCRT.WIDTH * 4;
+    const srcStride = srcWidth * 4;
+
+    for (let row = 0; row < h; row++) {
+      const sRow = (sy0 + row) * srcStride + sx0 * 4;
+      const dRow = (dy0 + row) * dstStride + dx0 * 4;
+      for (let col = 0; col < w; col++) {
+        const s = sRow + col * 4;
+        if (src[s + 3] === 0) {
+          continue;
+        }
+        const d = dRow + col * 4;
+        dst[d] = src[s];
+        dst[d + 1] = src[s + 1];
+        dst[d + 2] = src[s + 2];
+        dst[d + 3] = src[s + 3];
+      }
+    }
+  }
+
   present(): void {
     this.ctx.putImageData(this.imageData, 0, 0);
   }

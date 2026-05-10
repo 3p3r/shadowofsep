@@ -1,10 +1,11 @@
-import { palette, type Rgb, rgb } from "../../palette";
+import { paletteRgb, type Rgb } from "../../palette";
 import { createSeededNoise2D } from "../seededNoise";
+import { writeRgba } from "./pixels";
 
-const dense = rgb(palette.windowLit);
-const mid = rgb(palette.windowDim);
-const outer = rgb(palette.windowDimmest);
-const black = rgb(palette.cityBuilding);
+const dense = paletteRgb.windowLit;
+const mid = paletteRgb.windowDim;
+const outer = paletteRgb.windowDimmest;
+const black = paletteRgb.cityBuilding;
 
 export const BOULDER_W = 16;
 export const BOULDER_H = 8;
@@ -25,19 +26,11 @@ function emptyRgba(w: number, h: number): Uint8ClampedArray {
   return new Uint8ClampedArray(w * h * 4);
 }
 
-function paint(pixels: Uint8ClampedArray, w: number, x: number, y: number, c: Rgb): void {
-  const i = (y * w + x) * 4;
-  pixels[i] = c.r;
-  pixels[i + 1] = c.g;
-  pixels[i + 2] = c.b;
-  pixels[i + 3] = 255;
-}
-
 function flushRow(pixels: Uint8ClampedArray, w: number, y: number, row: readonly Cell[]): void {
   for (let x = 0; x < w; x++) {
     const cell = row[x];
     if (cell === T) continue;
-    paint(pixels, w, x, y, PALETTE[cell]);
+    writeRgba(pixels, w, x, y, PALETTE[cell]);
   }
 }
 
@@ -234,7 +227,7 @@ export function buildRock(seed: number): Uint8ClampedArray {
         if (r > 0.7) cell = CITY_BLACK;
         else if (r > 0.45) cell = OUTER;
       }
-      if (cell !== T) paint(pixels, ROCK_W, x, y, PALETTE[cell]);
+      if (cell !== T) writeRgba(pixels, ROCK_W, x, y, PALETTE[cell]);
     }
   }
 

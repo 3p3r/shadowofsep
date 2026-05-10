@@ -1,21 +1,15 @@
-import { palette, rgb } from "../../palette";
-
-const starRgb = rgb(palette.star);
-
+import { paletteRgb } from "../../palette";
 import { createSeededNoise2D } from "../seededNoise";
 import { VirtualCRT } from "../VirtualCRT";
 import { Layer, type Region } from "./Layer";
+
+const starRgb = paletteRgb.star;
 
 const HEIGHT = Math.floor(VirtualCRT.HEIGHT / 3);
 const WIDTH = VirtualCRT.WIDTH;
 
 /**
- * Top-third layer: sparse 1-pixel star dots over a transparent background.
- *
- * Stars are placed by thresholding a simplex-noise field, sampled only on
- * every 6th row starting at row 6. Sampling at high frequency in x ensures
- * adjacent samples are uncorrelated, so threshold crossings come out as
- * isolated pixels rather than runs.
+ * Top third: sparse 1-pixel stars from thresholded simplex noise (every 6th row from y=6).
  */
 export class StarryNightLayer extends Layer {
   readonly region: Region = { x: 0, y: 0, width: WIDTH, height: HEIGHT };

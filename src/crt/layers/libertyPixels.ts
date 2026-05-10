@@ -1,25 +1,20 @@
-import { palette, type Rgb, rgb } from "../../palette";
+import { paletteRgb, type Rgb } from "../../palette";
+import { writeRgba } from "./pixels";
 
-/**
- * Pixel-art encoding of the Statue of Liberty, traced 1:1 from the cleaned-up
- * `liberty.png` asset (27×60). Cells with `alpha < 128` in the source PNG are
- * encoded as `-1` (transparent); every other cell maps to the nearest entry
- * in `LIBERTY_PALETTE`.
- */
+/** 27×60 grid from `liberty.png`: `-1` = transparent; other indices index `LIBERTY_PALETTE`. */
 
 export const LIBERTY_WIDTH = 27;
 export const LIBERTY_HEIGHT = 60;
 
 export const LIBERTY_PALETTE: readonly Rgb[] = [
-  rgb(palette.cityBuilding), //    0  outline / dark
-  rgb(palette.windowDimmest), //   1  deepest shadow
-  rgb(palette.riverReflection), // 2  navy accent (pedestal trim)
-  rgb(palette.windowDim), //       3  mid blue (robe shadow)
-  rgb(palette.windowLit), //       4  highlight cyan
-  rgb(palette.riverCityLight), //  5  torch flame / pedestal lights
+  paletteRgb.cityBuilding,
+  paletteRgb.windowDimmest,
+  paletteRgb.riverReflection,
+  paletteRgb.windowDim,
+  paletteRgb.windowLit,
+  paletteRgb.riverCityLight,
 ];
 
-// 60 rows × 27 columns. `-1` = transparent (PNG alpha = 0).
 // biome-ignore format: keep each row on one line so the pixel grid stays readable
 export const LIBERTY_PIXELS: readonly (readonly number[])[] = [
   /* row  0 */ [-1, -1, -1, -1, -1, -1, 1, 5, 4, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -83,3 +78,21 @@ export const LIBERTY_PIXELS: readonly (readonly number[])[] = [
   /* row 58 */ [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   /* row 59 */ [1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 3, 1, 1, 1, 1, 2, 1, 2],
 ];
+
+function buildLibertyRgba(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(LIBERTY_WIDTH * LIBERTY_HEIGHT * 4);
+  for (let row = 0; row < LIBERTY_HEIGHT; row++) {
+    const rp = LIBERTY_PIXELS[row];
+    if (!rp) continue;
+    for (let col = 0; col < LIBERTY_WIDTH; col++) {
+      const idx = rp[col];
+      if (idx === undefined || idx < 0) continue;
+      const c = LIBERTY_PALETTE[idx];
+      if (!c) continue;
+      writeRgba(buf, LIBERTY_WIDTH, col, row, c);
+    }
+  }
+  return buf;
+}
+
+export const LIBERTY_RGBA = buildLibertyRgba();

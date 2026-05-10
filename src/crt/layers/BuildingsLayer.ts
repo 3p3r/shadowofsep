@@ -1,11 +1,12 @@
-import { palette, type Rgb, rgb } from "../../palette";
+import { paletteRgb, type Rgb } from "../../palette";
 import { VirtualCRT } from "../VirtualCRT";
 import { Layer, type Region } from "./Layer";
+import { writeRgba } from "./pixels";
 
-const buildingRgb = rgb(palette.cityBuilding);
-const windowLitRgb = rgb(palette.windowLit);
-const windowDimRgb = rgb(palette.windowDim);
-const windowDimmestRgb = rgb(palette.windowDimmest);
+const buildingRgb = paletteRgb.cityBuilding;
+const windowLitRgb = paletteRgb.windowLit;
+const windowDimRgb = paletteRgb.windowDim;
+const windowDimmestRgb = paletteRgb.windowDimmest;
 
 const H = Math.floor(VirtualCRT.HEIGHT / 3);
 const W = VirtualCRT.WIDTH;
@@ -142,11 +143,7 @@ function hash01(a: number, b: number, c: number): number {
 
 function putOpaque(pixels: Uint8ClampedArray, gx: number, gy: number, color: Rgb = buildingRgb): void {
   if (gx < 0 || gx >= W || gy < 0 || gy >= H) return;
-  const i = (gy * W + gx) * 4;
-  pixels[i] = color.r;
-  pixels[i + 1] = color.g;
-  pixels[i + 2] = color.b;
-  pixels[i + 3] = 255;
+  writeRgba(pixels, W, gx, gy, color);
 }
 
 type WindowMode = "uniformDim" | "mixed";
@@ -155,6 +152,37 @@ function pickWindowMode(kind: BuildingKind, ci: number, bid: number, tileSeed: n
   if (kind === "suburban") return "uniformDim";
   // ~30% of city-center towers (tall + mid-rise) go fully dim ("blackout").
   return hash01(ci, bid, tileSeed ^ 0xdead_beef) < 0.3 ? "uniformDim" : "mixed";
+}
+
+function drawWindowRow(
+  pixels: Uint8ClampedArray,
+  py: number,
+  innerLeft: number,
+  innerRight: number,
+  mode: WindowMode,
+  ci: number,
+  bid: number,
+): void {
+  if (hash01(ci, bid, py * 0x2c1b + 0x6f1d) < 0.3) return;
+
+  const color =
+    mode === "uniformDim"
+      ? windowDimmestRgb
+      : hash01(ci, bid, py * 0x9e37 + 0x5151) < 0.5
+        ? windowLitRgb
+        : windowDimRgb;
+
+  if (hash01(ci, bid, py * 0x4d09 + 0xa1f3) < 0.15) {
+    for (let bx = innerLeft; bx <= innerRight; bx++) putOpaque(pixels, bx, py, color);
+    return;
+  }
+
+  const density = 0.45 + hash01(ci, bid, py * 0x6c5d + 0x77b1) * 0.4;
+  for (let bx = innerLeft; bx <= innerRight; bx++) {
+    if (hash01(ci, bid * 0x9e37 + bx, py * 0x119b + 0x33c1) < density) {
+      putOpaque(pixels, bx, py, color);
+    }
+  }
 }
 
 function drawBuilding(
@@ -181,8 +209,6 @@ function drawBuilding(
     if (widenRight && py >= baseStartRow) putOpaque(pixels, left + width, py);
   }
 
-  // Windows: every other row from rowTop+1 down to rowBottom-1, leaving a 1px
-  // black border on every edge of the building.
   if (width < 3 || height < 3) return;
 
   const mode = pickWindowMode(kind, ci, bid, tileSeed);
@@ -191,32 +217,8 @@ function drawBuilding(
   const firstWinRow = rowTop + 1;
   const lastWinRow = rowBottom - 1;
 
-  // Each row independently rolls: skip vs. paint, color, full-stripe vs. dotted,
-  // density. So the same building reads as visibly varied row-to-row.
   for (let py = firstWinRow; py <= lastWinRow; py += 2) {
-    // ~30% of would-be window rows stay black, dimming the overall window count.
-    if (hash01(ci, bid, py * 0x2c1b + 0x6f1d) < 0.3) continue;
-
-    const color =
-      mode === "uniformDim"
-        ? windowDimmestRgb
-        : hash01(ci, bid, py * 0x9e37 + 0x5151) < 0.5
-          ? windowLitRgb
-          : windowDimRgb;
-
-    // ~15% of surviving rows are full-width stripes (the dramatic skyscraper look).
-    if (hash01(ci, bid, py * 0x4d09 + 0xa1f3) < 0.15) {
-      for (let bx = innerLeft; bx <= innerRight; bx++) putOpaque(pixels, bx, py, color);
-      continue;
-    }
-
-    // Otherwise per-pixel coin flip with a per-row density jitter.
-    const density = 0.45 + hash01(ci, bid, py * 0x6c5d + 0x77b1) * 0.4; // 0.45..0.85
-    for (let bx = innerLeft; bx <= innerRight; bx++) {
-      if (hash01(ci, bid * 0x9e37 + bx, py * 0x119b + 0x33c1) < density) {
-        putOpaque(pixels, bx, py, color);
-      }
-    }
+    drawWindowRow(pixels, py, innerLeft, innerRight, mode, ci, bid);
   }
 }
 

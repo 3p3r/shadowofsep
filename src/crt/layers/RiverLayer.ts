@@ -1,12 +1,12 @@
 import type { NoiseFunction2D } from "simplex-noise";
-import { palette, rgb } from "../../palette";
-
-const riverCityLight = rgb(palette.riverCityLight);
-const riverReflection = rgb(palette.riverReflection);
-
+import { paletteRgb } from "../../palette";
 import { createSeededNoise2D } from "../seededNoise";
 import { VirtualCRT } from "../VirtualCRT";
 import { Layer, type Region } from "./Layer";
+import { writeRgba } from "./pixels";
+
+const riverCityLight = paletteRgb.riverCityLight;
+const riverReflection = paletteRgb.riverReflection;
 
 const H = Math.floor(VirtualCRT.HEIGHT / 3);
 const W = VirtualCRT.WIDTH;
@@ -37,12 +37,7 @@ const BLUE_ROWS: readonly [row: number, threshold: number][] = [
   [14, 0.6],
 ];
 
-/**
- * Bottom third: black water, row 0 yellow horizon lights (+ optional blue pixels in gaps),
- * row 3 flipped (blue lights, yellow accents), rows 5/7/11/14 blue dissipation. Lights
- * are dense in the central band and become sparse 1-px lights with growing gaps in the
- * outer band of each tile, with a small dead band right at the edges.
- */
+/** Bottom third: horizon lights, mirrored row, blue dissipation bands; density falls off toward tile edges. */
 export class RiverLayer extends Layer {
   readonly region: Region = { x: 0, y: H * 2, width: W, height: H };
   readonly tiles: Uint8ClampedArray[];
@@ -74,11 +69,7 @@ function buildTile(seed: number): Uint8ClampedArray {
 }
 
 function put(pixels: Uint8ClampedArray, x: number, y: number, color: { r: number; g: number; b: number }): void {
-  const i = (y * W + x) * 4;
-  pixels[i] = color.r;
-  pixels[i + 1] = color.g;
-  pixels[i + 2] = color.b;
-  pixels[i + 3] = 255;
+  writeRgba(pixels, W, x, y, color);
 }
 
 function unit(noise2D: NoiseFunction2D, x: number, y: number): number {

@@ -9,18 +9,8 @@ export interface Region {
 }
 
 /**
- * A horizontally-scrolling strip of tiles confined to a sub-region of the
- * CRT.
- *
- * Layers are the unit of composition: each one owns its region (e.g. top /
- * middle / bottom third), its tile set, and its own scroll speed (so layers
- * can later parallax independently). Subclasses just provide `region` and
- * `tiles`; the base class handles wraparound scrolling and blitting into the
- * CRT framebuffer.
- *
- * Each tile is an RGBA byte buffer sized `region.width * region.height * 4`.
- * The strip is the tile set repeated end-to-end and wrapped, so any
- * `scrollX` is valid.
+ * Horizontally scrolling tile strip in a CRT sub-region. Tile-based layers implement
+ * `tiles` + `region`; others override `renderTo`.
  */
 export abstract class Layer {
   abstract readonly region: Region;
