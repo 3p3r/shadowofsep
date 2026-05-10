@@ -18,7 +18,9 @@ const BUILDINGS_SCROLL_SPEED = 2.6;
 /** Stars are farther away, so they drift slower (parallax). */
 const STAR_SCROLL_SPEED = 1.2;
 /** ±px/sec added to *river* speed when panning; stars/buildings use the same multiplier so parallax holds. */
-const MANUAL_SCROLL_BOOST = 10.4;
+const MANUAL_SCROLL_BOOST = 50.0;
+/** Statue + rocks slide opposite player travel at this fraction of camera motion (parallax). */
+const LIBERTY_PARALLAX = 0.75;
 
 const CRT_STARS_KEY = "crt-stars";
 const CRT_BUILDINGS_KEY = "crt-buildings";
@@ -59,6 +61,9 @@ class CRTScene extends Phaser.Scene {
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
+
+  /** Player distance past initial view (CRT px); clamped >= 0 so we never reverse past load state. */
+  private cameraX = 0;
 
   constructor() {
     super("crt");
@@ -155,20 +160,34 @@ class CRTScene extends Phaser.Scene {
   override update(_time: number, deltaMs: number): void {
     const dt = deltaMs / 1000;
 
+    for (const layer of this.layers) {
+      layer.scrollX += layer.scrollSpeed * dt;
+    }
+
     const panLeft = this.cursors.left.isDown || this.keyA.isDown || this.keyS.isDown;
     const panRight = this.cursors.right.isDown || this.keyD.isDown || this.keyW.isDown;
-
-    let speedMultiplier = 1;
-    if (panLeft && !panRight) {
-      speedMultiplier = (RIVER_SCROLL_SPEED - MANUAL_SCROLL_BOOST) / RIVER_SCROLL_SPEED;
-    } else if (panRight && !panLeft) {
-      speedMultiplier = (RIVER_SCROLL_SPEED + MANUAL_SCROLL_BOOST) / RIVER_SCROLL_SPEED;
+    let panInput = 0;
+    if (panRight && !panLeft) {
+      panInput = 1;
+    } else if (panLeft && !panRight) {
+      panInput = -1;
     }
+
+    const oldCameraX = this.cameraX;
+    this.cameraX = Math.max(0, oldCameraX + panInput * MANUAL_SCROLL_BOOST * dt);
+    const actualDelta = this.cameraX - oldCameraX;
 
     for (const layer of this.layers) {
-      layer.scrollX += layer.scrollSpeed * speedMultiplier * dt;
+      layer.scrollX += actualDelta * (layer.scrollSpeed / RIVER_SCROLL_SPEED);
     }
+
     this.shootingStarLayer.update(dt);
+
+    const libertyTotal = this.cameraX * LIBERTY_PARALLAX;
+    const libertyInt = Math.floor(libertyTotal);
+    const libertyFrac = libertyTotal - libertyInt;
+    this.libertyLayer.offsetX = -libertyInt;
+    this.libertyRocksLayer.offsetX = -libertyInt;
 
     this.crtStars.clear();
     this.starsLayer.renderTo(this.crtStars);
@@ -204,6 +223,8 @@ class CRTScene extends Phaser.Scene {
     this.starsImage.x = -this.starsLayer.fractionalScroll * px;
     this.buildingsImage.x = -this.buildingsLayer.fractionalScroll * px;
     this.fgImage.x = -this.riverLayer.fractionalScroll * px;
+    this.libertyImage.x = -libertyFrac * px;
+    this.libertyRocksImage.x = -libertyFrac * px;
   }
 }
 

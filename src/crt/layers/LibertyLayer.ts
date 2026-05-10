@@ -26,7 +26,11 @@ export class LibertyLayer extends Layer {
   readonly region: Region = { x: LEFT_X, y: TOP_Y, width: LIBERTY_WIDTH, height: LIBERTY_HEIGHT };
   readonly tiles: readonly Uint8ClampedArray[] = [];
 
+  /** Integer CRT-pixel horizontal shift applied at render time (negative = slide left). */
+  offsetX = 0;
+
   override renderTo(crt: VirtualCRT): void {
+    const baseX = LEFT_X + this.offsetX;
     for (let row = 0; row < LIBERTY_HEIGHT; row++) {
       const rowPixels = LIBERTY_PIXELS[row];
       const dy = TOP_Y + row;
@@ -34,7 +38,7 @@ export class LibertyLayer extends Layer {
         const idx = rowPixels[col];
         if (idx < 0) continue;
         const c = LIBERTY_PALETTE[idx];
-        crt.setPixel(LEFT_X + col, dy, c.r, c.g, c.b);
+        crt.setPixel(baseX + col, dy, c.r, c.g, c.b);
       }
     }
   }

@@ -65,9 +65,12 @@ export class LibertyRocksLayer extends Layer {
   };
   readonly tiles: readonly Uint8ClampedArray[] = [];
 
+  /** Integer CRT-pixel horizontal shift applied at render time (negative = slide left). */
+  offsetX = 0;
+
   override renderTo(crt: VirtualCRT): void {
     for (const p of PLACEMENTS) {
-      blitWithAlpha(crt, p.tex, p.w, p.h, p.x, p.y);
+      blitWithAlpha(crt, p.tex, p.w, p.h, p.x + this.offsetX, p.y);
     }
   }
 }
