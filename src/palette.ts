@@ -10,6 +10,14 @@ export const palette = {
   riverReflection: "#000e88",
   /** Sparse star dots (top layer). */
   star: "#ffffff",
+  /** City skyline silhouettes (middle layer). */
+  cityBuilding: "#000000",
+  /** Brightly-lit windows on city-center towers. */
+  windowLit: "#00e4ff",
+  /** Half-lit / reflected windows on city-center towers. */
+  windowDim: "#0070af",
+  /** "Blackout" or always-dim windows: suburban buildings + some city-center towers. */
+  windowDimmest: "#00264c",
 } as const;
 
 export type Palette = typeof palette;

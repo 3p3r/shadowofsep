@@ -5,24 +5,30 @@ import { palette } from "./palette";
 
 /** CRT pixels/sec — river (near plane). */
 const RIVER_SCROLL_SPEED = 16;
+/** Skyline drift: slightly slower than river (parallax from water). */
+const BUILDINGS_SCROLL_SPEED = 13;
 /** Stars are farther away, so they drift slower (parallax). */
 const STAR_SCROLL_SPEED = 6;
 /** ±px/sec added to *river* speed when panning; stars/buildings use the same multiplier so parallax holds. */
 const MANUAL_SCROLL_BOOST = 52;
 
 const CRT_STARS_KEY = "crt-stars";
+const CRT_BUILDINGS_KEY = "crt-buildings";
 const CRT_FG_KEY = "crt-fg";
 
 class CRTScene extends Phaser.Scene {
   private crtStars!: VirtualCRT;
+  private crtBuildings!: VirtualCRT;
   private crtFg!: VirtualCRT;
   private starsLayer!: StarryNightLayer;
   private buildingsLayer!: BuildingsLayer;
   private riverLayer!: RiverLayer;
   private layers!: [StarryNightLayer, BuildingsLayer, RiverLayer];
   private starsImage!: Phaser.GameObjects.Image;
+  private buildingsImage!: Phaser.GameObjects.Image;
   private fgImage!: Phaser.GameObjects.Image;
   private starsTexture!: Phaser.Textures.CanvasTexture;
+  private buildingsTexture!: Phaser.Textures.CanvasTexture;
   private fgTexture!: Phaser.Textures.CanvasTexture;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -37,6 +43,7 @@ class CRTScene extends Phaser.Scene {
 
   create(): void {
     this.crtStars = new VirtualCRT();
+    this.crtBuildings = new VirtualCRT();
     this.crtFg = new VirtualCRT();
 
     const stars = new StarryNightLayer();
@@ -44,7 +51,7 @@ class CRTScene extends Phaser.Scene {
     const river = new RiverLayer();
 
     stars.scrollSpeed = STAR_SCROLL_SPEED;
-    buildings.scrollSpeed = RIVER_SCROLL_SPEED;
+    buildings.scrollSpeed = BUILDINGS_SCROLL_SPEED;
     river.scrollSpeed = RIVER_SCROLL_SPEED;
 
     this.starsLayer = stars;
@@ -57,17 +64,21 @@ class CRTScene extends Phaser.Scene {
     };
 
     const starsTex = this.textures.addCanvas(CRT_STARS_KEY, this.crtStars.canvas);
+    const buildingsTex = this.textures.addCanvas(CRT_BUILDINGS_KEY, this.crtBuildings.canvas);
     const fgTex = this.textures.addCanvas(CRT_FG_KEY, this.crtFg.canvas);
-    if (!starsTex || !fgTex) {
+    if (!starsTex || !buildingsTex || !fgTex) {
       throw new Error("CRTScene: failed to register CRT canvases");
     }
     this.starsTexture = starsTex;
+    this.buildingsTexture = buildingsTex;
     this.fgTexture = fgTex;
     bindLinear(this.starsTexture);
+    bindLinear(this.buildingsTexture);
     bindLinear(this.fgTexture);
 
     this.starsImage = this.add.image(0, 0, CRT_STARS_KEY).setOrigin(0, 0).setDepth(0);
-    this.fgImage = this.add.image(0, 0, CRT_FG_KEY).setOrigin(0, 0).setDepth(1);
+    this.buildingsImage = this.add.image(0, 0, CRT_BUILDINGS_KEY).setOrigin(0, 0).setDepth(1);
+    this.fgImage = this.add.image(0, 0, CRT_FG_KEY).setOrigin(0, 0).setDepth(2);
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.handleResize(this.scale.gameSize);
@@ -90,6 +101,7 @@ class CRTScene extends Phaser.Scene {
     const pxPerCrtX = gameSize.width / VirtualCRT.WIDTH;
     const sx = (gameSize.width + pxPerCrtX) / VirtualCRT.WIDTH;
     this.starsImage.setScale(sx, sy);
+    this.buildingsImage.setScale(sx, sy);
     this.fgImage.setScale(sx, sy);
   }
 
@@ -115,14 +127,19 @@ class CRTScene extends Phaser.Scene {
     this.crtStars.present();
     this.starsTexture.refresh();
 
+    this.crtBuildings.clear();
+    this.buildingsLayer.renderTo(this.crtBuildings);
+    this.crtBuildings.present();
+    this.buildingsTexture.refresh();
+
     this.crtFg.clear();
-    this.buildingsLayer.renderTo(this.crtFg);
     this.riverLayer.renderTo(this.crtFg);
     this.crtFg.present();
     this.fgTexture.refresh();
 
     const px = this.scale.gameSize.width / VirtualCRT.WIDTH;
     this.starsImage.x = -this.starsLayer.fractionalScroll * px;
+    this.buildingsImage.x = -this.buildingsLayer.fractionalScroll * px;
     this.fgImage.x = -this.riverLayer.fractionalScroll * px;
   }
 }
