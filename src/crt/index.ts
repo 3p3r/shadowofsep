@@ -2,6 +2,7 @@ export { BuildingsLayer } from "./layers/BuildingsLayer";
 export { Layer, type Region } from "./layers/Layer";
 export { LibertyLayer } from "./layers/LibertyLayer";
 export { LibertyRocksLayer } from "./layers/LibertyRocksLayer";
+export { PlayersLayer } from "./layers/PlayersLayer";
 export { RiverLayer } from "./layers/RiverLayer";
 export { ShootingStarLayer } from "./layers/ShootingStarLayer";
 export { StarryNightLayer } from "./layers/StarryNightLayer";

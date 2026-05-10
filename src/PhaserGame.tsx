@@ -5,6 +5,7 @@ import {
   type Layer,
   LibertyLayer,
   LibertyRocksLayer,
+  PlayersLayer,
   RiverLayer,
   ShootingStarLayer,
   StarryNightLayer,
@@ -15,14 +16,16 @@ import { palette } from "./palette";
 const RIVER_SCROLL_SPEED = 3.2;
 const BUILDINGS_SCROLL_SPEED = 2.6;
 const STAR_SCROLL_SPEED = 1.2;
-const MANUAL_SCROLL_BOOST = 50.0;
 const LIBERTY_PARALLAX = 0.75;
+/** Scales average player horizontal speed into `cameraX` advance per second. */
+const CAMERA_FOLLOW_FACTOR = 0.85;
 
 const CRT_STARS_KEY = "crt-stars";
 const CRT_BUILDINGS_KEY = "crt-buildings";
 const CRT_SHOOTING_STAR_KEY = "crt-shooting-star";
 const CRT_FG_KEY = "crt-fg";
 const CRT_LIBERTY_ROCKS_KEY = "crt-liberty-rocks";
+const CRT_PLAYERS_KEY = "crt-players";
 const CRT_LIBERTY_KEY = "crt-liberty";
 
 type CrtPass = {
@@ -41,6 +44,7 @@ class CRTScene extends Phaser.Scene {
   private shootingStarLayer!: ShootingStarLayer;
   private libertyRocksLayer!: LibertyRocksLayer;
   private libertyLayer!: LibertyLayer;
+  private playersLayer!: PlayersLayer;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -61,6 +65,7 @@ class CRTScene extends Phaser.Scene {
     const shootingStar = new ShootingStarLayer();
     const libertyRocks = new LibertyRocksLayer();
     const liberty = new LibertyLayer();
+    const players = new PlayersLayer();
 
     stars.scrollSpeed = STAR_SCROLL_SPEED;
     buildings.scrollSpeed = BUILDINGS_SCROLL_SPEED;
@@ -70,12 +75,14 @@ class CRTScene extends Phaser.Scene {
     this.shootingStarLayer = shootingStar;
     this.libertyRocksLayer = libertyRocks;
     this.libertyLayer = liberty;
+    this.playersLayer = players;
 
     const crtStars = new VirtualCRT();
     const crtBuildings = new VirtualCRT();
     const crtShootingStar = new VirtualCRT();
     const crtFg = new VirtualCRT();
     const crtLibertyRocks = new VirtualCRT();
+    const crtPlayers = new VirtualCRT();
     const crtLiberty = new VirtualCRT();
 
     const specs: Array<{
@@ -109,6 +116,13 @@ class CRTScene extends Phaser.Scene {
         fractional: () => 0,
       },
       { key: CRT_LIBERTY_KEY, depth: 3, layer: liberty, crt: crtLiberty, fractional: () => 0 },
+      {
+        key: CRT_PLAYERS_KEY,
+        depth: 3.5,
+        layer: players,
+        crt: crtPlayers,
+        fractional: () => 0,
+      },
     ];
 
     this.passes = specs.map((s) => {
@@ -153,12 +167,20 @@ class CRTScene extends Phaser.Scene {
       layer.scrollX += layer.scrollSpeed * dt;
     }
 
-    const panLeft = this.cursors.left.isDown || this.keyA.isDown || this.keyS.isDown;
-    const panRight = this.cursors.right.isDown || this.keyD.isDown || this.keyW.isDown;
-    const panInput = Number(panRight) - Number(panLeft);
+    const hayateInput = {
+      dx: Number(this.keyD.isDown) - Number(this.keyA.isDown),
+      dy: Number(this.keyS.isDown) - Number(this.keyW.isDown),
+    };
+    const kaedeInput = {
+      dx: Number(this.cursors.right.isDown) - Number(this.cursors.left.isDown),
+      dy: Number(this.cursors.down.isDown) - Number(this.cursors.up.isDown),
+    };
 
+    this.playersLayer.tick(dt, hayateInput, kaedeInput, _time);
+
+    const combinedVx = this.playersLayer.getAverageVelocityX();
     const oldCameraX = this.cameraX;
-    this.cameraX = Math.max(0, oldCameraX + panInput * MANUAL_SCROLL_BOOST * dt);
+    this.cameraX = Math.max(0, oldCameraX + combinedVx * CAMERA_FOLLOW_FACTOR * dt);
     const actualDelta = this.cameraX - oldCameraX;
 
     for (const layer of this.layers) {
