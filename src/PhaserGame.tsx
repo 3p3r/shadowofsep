@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
-import { BuildingsLayer, RiverLayer, ShootingStarLayer, StarryNightLayer, VirtualCRT } from "./crt";
+import { BuildingsLayer, LibertyLayer, RiverLayer, ShootingStarLayer, StarryNightLayer, VirtualCRT } from "./crt";
 import { palette } from "./palette";
 
 /** CRT pixels/sec — river (near plane). */
@@ -16,25 +16,30 @@ const CRT_STARS_KEY = "crt-stars";
 const CRT_BUILDINGS_KEY = "crt-buildings";
 const CRT_SHOOTING_STAR_KEY = "crt-shooting-star";
 const CRT_FG_KEY = "crt-fg";
+const CRT_LIBERTY_KEY = "crt-liberty";
 
 class CRTScene extends Phaser.Scene {
   private crtStars!: VirtualCRT;
   private crtBuildings!: VirtualCRT;
   private crtShootingStar!: VirtualCRT;
   private crtFg!: VirtualCRT;
+  private crtLiberty!: VirtualCRT;
   private starsLayer!: StarryNightLayer;
   private buildingsLayer!: BuildingsLayer;
   private riverLayer!: RiverLayer;
   private shootingStarLayer!: ShootingStarLayer;
+  private libertyLayer!: LibertyLayer;
   private layers!: [StarryNightLayer, BuildingsLayer, RiverLayer];
   private starsImage!: Phaser.GameObjects.Image;
   private buildingsImage!: Phaser.GameObjects.Image;
   private shootingStarImage!: Phaser.GameObjects.Image;
   private fgImage!: Phaser.GameObjects.Image;
+  private libertyImage!: Phaser.GameObjects.Image;
   private starsTexture!: Phaser.Textures.CanvasTexture;
   private buildingsTexture!: Phaser.Textures.CanvasTexture;
   private shootingStarTexture!: Phaser.Textures.CanvasTexture;
   private fgTexture!: Phaser.Textures.CanvasTexture;
+  private libertyTexture!: Phaser.Textures.CanvasTexture;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -51,11 +56,13 @@ class CRTScene extends Phaser.Scene {
     this.crtBuildings = new VirtualCRT();
     this.crtShootingStar = new VirtualCRT();
     this.crtFg = new VirtualCRT();
+    this.crtLiberty = new VirtualCRT();
 
     const stars = new StarryNightLayer();
     const buildings = new BuildingsLayer();
     const river = new RiverLayer();
     const shootingStar = new ShootingStarLayer();
+    const liberty = new LibertyLayer();
 
     stars.scrollSpeed = STAR_SCROLL_SPEED;
     buildings.scrollSpeed = BUILDINGS_SCROLL_SPEED;
@@ -65,6 +72,7 @@ class CRTScene extends Phaser.Scene {
     this.buildingsLayer = buildings;
     this.riverLayer = river;
     this.shootingStarLayer = shootingStar;
+    this.libertyLayer = liberty;
     this.layers = [stars, buildings, river];
 
     const bindLinear = (tex: Phaser.Textures.CanvasTexture) => {
@@ -75,22 +83,26 @@ class CRTScene extends Phaser.Scene {
     const buildingsTex = this.textures.addCanvas(CRT_BUILDINGS_KEY, this.crtBuildings.canvas);
     const shootingStarTex = this.textures.addCanvas(CRT_SHOOTING_STAR_KEY, this.crtShootingStar.canvas);
     const fgTex = this.textures.addCanvas(CRT_FG_KEY, this.crtFg.canvas);
-    if (!starsTex || !buildingsTex || !shootingStarTex || !fgTex) {
+    const libertyTex = this.textures.addCanvas(CRT_LIBERTY_KEY, this.crtLiberty.canvas);
+    if (!starsTex || !buildingsTex || !shootingStarTex || !fgTex || !libertyTex) {
       throw new Error("CRTScene: failed to register CRT canvases");
     }
     this.starsTexture = starsTex;
     this.buildingsTexture = buildingsTex;
     this.shootingStarTexture = shootingStarTex;
     this.fgTexture = fgTex;
+    this.libertyTexture = libertyTex;
     bindLinear(this.starsTexture);
     bindLinear(this.buildingsTexture);
     bindLinear(this.shootingStarTexture);
     bindLinear(this.fgTexture);
+    bindLinear(this.libertyTexture);
 
     this.starsImage = this.add.image(0, 0, CRT_STARS_KEY).setOrigin(0, 0).setDepth(0);
     this.shootingStarImage = this.add.image(0, 0, CRT_SHOOTING_STAR_KEY).setOrigin(0, 0).setDepth(0.5);
     this.buildingsImage = this.add.image(0, 0, CRT_BUILDINGS_KEY).setOrigin(0, 0).setDepth(1);
     this.fgImage = this.add.image(0, 0, CRT_FG_KEY).setOrigin(0, 0).setDepth(2);
+    this.libertyImage = this.add.image(0, 0, CRT_LIBERTY_KEY).setOrigin(0, 0).setDepth(3);
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.handleResize(this.scale.gameSize);
@@ -116,6 +128,7 @@ class CRTScene extends Phaser.Scene {
     this.buildingsImage.setScale(sx, sy);
     this.shootingStarImage.setScale(sx, sy);
     this.fgImage.setScale(sx, sy);
+    this.libertyImage.setScale(sx, sy);
   }
 
   override update(_time: number, deltaMs: number): void {
@@ -155,6 +168,11 @@ class CRTScene extends Phaser.Scene {
     this.riverLayer.renderTo(this.crtFg);
     this.crtFg.present();
     this.fgTexture.refresh();
+
+    this.crtLiberty.clear();
+    this.libertyLayer.renderTo(this.crtLiberty);
+    this.crtLiberty.present();
+    this.libertyTexture.refresh();
 
     const px = this.scale.gameSize.width / VirtualCRT.WIDTH;
     this.starsImage.x = -this.starsLayer.fractionalScroll * px;
